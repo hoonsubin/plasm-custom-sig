@@ -89,9 +89,9 @@ export const signCall = async (senderSs58: string, call: Call) => {
     const { account } = await getEthereumRpc();
     const api = await getPlasmInstance(PlasmNetwork.Local);
 
-    const sig = polkadotUtils.hexToU8a(await requestClientSignature(account, call.toHex()));
+    const sig = polkadotUtils.hexToU8a(await requestClientSignature(account, polkadotUtils.u8aToHex(call.toU8a())));
     console.log({ txCall: JSON.stringify(call), signature: polkadotUtils.u8aToHex(sig) });
-    const res = await api.tx.ecdsaSignature.call(call.toJSON(), senderSs58, sig).send();
+    const res = await api.tx.ecdsaSignature.call(call, senderSs58, sig).send();
 
     return res;
 };

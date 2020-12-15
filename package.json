@@ -34,7 +34,6 @@
         "@testing-library/react": "^11.1.0",
         "@testing-library/user-event": "^12.1.10",
         "@types/jest": "^26.0.15",
-        "@types/node": "^12.0.0",
         "@types/react": "^16.9.53",
         "@types/react-dom": "^16.9.8",
         "@types/react-redux": "^7.1.12",
@@ -43,6 +42,8 @@
         "eslint-plugin-jest": "^24.1.3",
         "eslint-plugin-prettier": "^3.3.0",
         "eslint-plugin-testing-library": "^3.10.1",
+        "jest-environment-jsdom": "25",
+        "jest-environment-uint8array": "^1.0.0",
         "prettier": "^2.2.1",
         "react-app-rewired": "^2.1.8",
         "typescript": "^4.1.3"
@@ -58,7 +59,8 @@
     "jest": {
         "setupFiles": [
             "dotenv/config"
-        ]
+        ],
+        "testEnvironment": "jest-environment-uint8array"
     },
     "scripts": {
         "start": "react-app-rewired start",

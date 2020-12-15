@@ -1,4 +1,4 @@
-module.exports = function override(config) {
+module.exports = function (config) {
     config.module.rules.push({
         test: /\.mjs$/,
         include: /node_modules/,

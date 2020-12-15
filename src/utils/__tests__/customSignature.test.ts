@@ -4,7 +4,7 @@ import { ApiPromise } from '@polkadot/api';
 import { Keyring } from '@polkadot/keyring';
 import * as polkadotUtil from '@polkadot/util';
 import * as polkadotCryptoUtil from '@polkadot/util-crypto';
-import * as ethereumUtils from 'ethereumjs-util';
+import * as EthUtil from 'ethereumjs-util';
 import * as EthCrypto from 'eth-crypto';
 import * as EthSigUtil from 'eth-sig-util';
 
@@ -72,19 +72,33 @@ describe('Plasm custom signature tests', () => {
 
         const transaction = plasm.tx.balances.transfer(alicePlasm.address, 5000);
 
-        const bobSig = bobEth.sign(polkadotUtil.u8aToHex(transaction.toU8a())).signature;
+        //const hashed1 = EthUtil.hashPersonalMessage(EthUtil.toBuffer(transaction.toU8a()));
+        //const sig1 = EthUtil.ecsign(hashed1, EthUtil.toBuffer(ecdsaSeed));
+
+        const hashedMessage = web3.eth.accounts.hashMessage(polkadotUtil.u8aToHex(transaction.toU8a()));
+        const sig = EthCrypto.sign(ecdsaSeed, hashedMessage);
+
+        const fullSigObject = EthUtil.fromRpcSig(sig);
 
         console.log('ECDSA signature info:');
         console.log({
-            message: polkadotUtil.u8aToHex(transaction.toU8a()),
-            callObject: transaction.toHuman(),
-            signature: bobSig,
+            message: hashedMessage,
+            callObject: JSON.stringify(transaction.toHuman()),
+            signature: sig,
             bobAddress: bobPlasm.address,
             aliceAddress: alicePlasm.address,
         });
 
+        const addr = EthCrypto.recover(sig, hashedMessage);
+
+        console.log(addr);
+        console.log(polkadotUtil.u8aToHex(bobPlasm.publicKey));
+        console.log(bobEth.address);
+        const addrFromPub = EthUtil.pubToAddress(EthUtil.toBuffer(bobPlasm.publicKey), true);
+        console.log(addrFromPub);
+
         try {
-            await plasm.tx.ecdsaSignature.call(transaction, bobPlasm.addressRaw, polkadotUtil.hexToU8a(bobSig)).send();
+            await plasm.tx.ecdsaSignature.call(transaction, bobPlasm.addressRaw, sig).send();
         } catch (e) {
             // eslint-disable-next-line jest/no-conditional-expect
             expect(e.toString()).toMatch('1010: Invalid Transaction: Transaction has a bad signature');

@@ -51,7 +51,7 @@ export const requestClientSignature = async (account: string, message: string) =
 
     //const hashedMessage = web3.eth.accounts.hashMessage(message);
     // this uses the 'eth_sign' method to sign data
-    const signature = await web3.eth.sign(message, EthSigUtil.normalize(account));
+    const signature = await web3.eth.personal.sign(message, account, '');
     console.log(signature);
     return signature;
 };
