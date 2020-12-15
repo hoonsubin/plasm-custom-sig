@@ -1,0 +1,82 @@
+{
+    "name": "plasm-custom-sig-app",
+    "version": "1.0.0",
+    "private": true,
+    "dependencies": {
+        "@material-ui/core": "^4.11.2",
+        "@material-ui/icons": "^4.11.2",
+        "@plasm/types": "^1.4.0",
+        "@polkadot/api": "^3.0.1",
+        "@polkadot/keyring": "^5.0.1",
+        "@polkadot/util": "^5.0.1",
+        "@reduxjs/toolkit": "^1.5.0",
+        "connected-react-router": "^6.8.0",
+        "dotenv": "^8.2.0",
+        "eth-crypto": "^1.8.0",
+        "eth-sig-util": "^3.0.0",
+        "ethereumjs-util": "^7.0.7",
+        "fontsource-roboto": "^3.1.5",
+        "history": "4.10.1",
+        "immutable": "^4.0.0-rc.12",
+        "react": "^17.0.1",
+        "react-dom": "^17.0.1",
+        "react-redux": "^7.2.2",
+        "react-router-dom": "^5.2.0",
+        "react-scripts": "4.0.1",
+        "redux": "^4.0.5",
+        "seamless-immutable": "^7.1.4",
+        "web-vitals": "^0.2.4",
+        "web3": "^1.3.0"
+    },
+    "devDependencies": {
+        "@testing-library/dom": "^7.29.0",
+        "@testing-library/jest-dom": "^5.11.4",
+        "@testing-library/react": "^11.1.0",
+        "@testing-library/user-event": "^12.1.10",
+        "@types/jest": "^26.0.15",
+        "@types/node": "^12.0.0",
+        "@types/react": "^16.9.53",
+        "@types/react-dom": "^16.9.8",
+        "@types/react-redux": "^7.1.12",
+        "@types/react-router-dom": "^5.1.6",
+        "eslint-config-prettier": "^7.0.0",
+        "eslint-plugin-jest": "^24.1.3",
+        "eslint-plugin-prettier": "^3.3.0",
+        "eslint-plugin-testing-library": "^3.10.1",
+        "prettier": "^2.2.1",
+        "react-app-rewired": "^2.1.8",
+        "typescript": "^4.1.3"
+    },
+    "eslintConfig": {
+        "extends": [
+            "react-app",
+            "react-app/jest",
+            "prettier/@typescript-eslint",
+            "plugin:prettier/recommended"
+        ]
+    },
+    "jest": {
+        "setupFiles": [
+            "dotenv/config"
+        ]
+    },
+    "scripts": {
+        "start": "react-app-rewired start",
+        "build": "react-app-rewired build",
+        "test": "react-app-rewired test",
+        "lint": "eslint '*/**/*.{js,ts,tsx}' --quiet --fix",
+        "eject": "react-scripts eject"
+    },
+    "browserslist": {
+        "production": [
+            ">0.2%",
+            "not dead",
+            "not op_mini all"
+        ],
+        "development": [
+            "last 1 chrome version",
+            "last 1 firefox version",
+            "last 1 safari version"
+        ]
+    }
+}
