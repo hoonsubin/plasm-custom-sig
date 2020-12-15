@@ -3,6 +3,10 @@ import Web3 from 'web3';
 import { ApiPromise } from '@polkadot/api';
 import { Keyring } from '@polkadot/keyring';
 import * as polkadotUtil from '@polkadot/util';
+import * as polkadotCryptoUtil from '@polkadot/util-crypto';
+import * as ethereumUtils from 'ethereumjs-util';
+import * as EthCrypto from 'eth-crypto';
+import * as EthSigUtil from 'eth-sig-util';
 
 const listAllChainMethods = (plasmApi: ApiPromise) => {
     const allChainPallets = Object.keys(plasmApi.tx);
@@ -46,40 +50,41 @@ describe('Plasm custom signature tests', () => {
             (await rpcConnection.plasm.isReady).isConnected && !!rpcConnection.web3.eth.accounts.currentProvider;
 
         if (!isConnected) throw new Error('Cannot connect to the blockchain');
+        const addrPref = plasm.registry.chainSS58 || 42;
 
-        keyring = new Keyring({ type: 'sr25519', ss58Format: 5 });
+        keyring = new Keyring({ type: 'sr25519', ss58Format: addrPref });
         console.log('Available chain methods:');
         console.log(listAllChainMethods(plasm));
     }, 1000 * 10);
 
     it('signs and send from an ECDSA client', async () => {
-        expect.assertions(1);
+        const ecdsaSeed = '0x7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c';
         const { web3, plasm } = rpcConnection;
 
-        const bobEth = web3.eth.accounts.create();
+        const bobEth = web3.eth.accounts.privateKeyToAccount(ecdsaSeed.replace('0x', ''));
 
         const alicePlasm = keyring.addFromUri('//Alice', {
             name: 'Alice default',
         });
 
         // note: bob doesn't have any balance yet
-        const bobPlasm = keyring.addFromSeed(polkadotUtil.hexToU8a(bobEth.privateKey), undefined, 'ecdsa');
+        const bobPlasm = keyring.addFromSeed(polkadotUtil.hexToU8a(ecdsaSeed), undefined, 'ecdsa');
 
         const transaction = plasm.tx.balances.transfer(alicePlasm.address, 5000);
 
-        const bobSig = bobEth.sign(transaction.toJSON()).signature;
+        const bobSig = bobEth.sign(polkadotUtil.u8aToHex(transaction.toU8a())).signature;
+
+        console.log('ECDSA signature info:');
         console.log({
-            message: transaction.toJSON(),
+            message: polkadotUtil.u8aToHex(transaction.toU8a()),
             callObject: transaction.toHuman(),
             signature: bobSig,
+            bobAddress: bobPlasm.address,
+            aliceAddress: alicePlasm.address,
         });
 
-        // expect(async () => {
-        //     await plasm.tx.ecdsaSignature.call(transaction, bobPlasm.address, bobSig).send();
-        // }).toThrow('1010: Invalid Transaction: Transaction has a bad signature');
-
         try {
-            await plasm.tx.ecdsaSignature.call(transaction, bobPlasm.address, bobSig).send();
+            await plasm.tx.ecdsaSignature.call(transaction, bobPlasm.addressRaw, polkadotUtil.hexToU8a(bobSig)).send();
         } catch (e) {
             // eslint-disable-next-line jest/no-conditional-expect
             expect(e.toString()).toMatch('1010: Invalid Transaction: Transaction has a bad signature');

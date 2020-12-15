@@ -20,7 +20,7 @@ const CustomSigView: React.FC = () => {
             .then((res) => {
                 setEthAccount(res.account);
                 utils.getAccountPubKey(res.account).then((i) => {
-                    const _plasmAddr = utils.ecdsaPubKeyToPlasmAddress(i);
+                    const _plasmAddr = utils.ecdsaPubKeyToPlasmAddress(i, 42);
                     setPlasmAddr(_plasmAddr);
                 });
             })
@@ -35,7 +35,8 @@ const CustomSigView: React.FC = () => {
     const handleTxButton = () => {
         if (!recipient || !plasmAddr) return;
 
-        const isValid = polkadotUtilCrypto.checkAddress(recipient, 5) && polkadotUtilCrypto.checkAddress(plasmAddr, 5);
+        const isValid =
+            polkadotUtilCrypto.checkAddress(recipient, 42) && polkadotUtilCrypto.checkAddress(plasmAddr, 42);
 
         if (isValid[0]) {
             setLoading(true);

@@ -18,7 +18,7 @@ export enum PlasmNetwork {
  * generates a Plasm public address with the given ethereum public key
  * @param ethPubKey an compressed ECDSA public key. With or without the 0x prefix
  */
-export function ecdsaPubKeyToPlasmAddress(publicKey: string) {
+export function ecdsaPubKeyToPlasmAddress(publicKey: string, addressPrefix: number = 5) {
     // converts a given hex string into Uint8Array
     const toByteArray = (hexString: string) => {
         const result = [];
@@ -31,7 +31,7 @@ export function ecdsaPubKeyToPlasmAddress(publicKey: string) {
     // hash to blake2
     const plasmPubKey = polkadotUtilCrypto.blake2AsU8a(toByteArray(publicKey.replace('0x', '')), 256);
     // encode address
-    const plasmAddress = polkadotUtilCrypto.encodeAddress(plasmPubKey, 5);
+    const plasmAddress = polkadotUtilCrypto.encodeAddress(plasmPubKey, addressPrefix);
     return plasmAddress;
 }
 
