@@ -75,6 +75,7 @@ describe('Plasm custom signature tests', () => {
         //const hashed1 = EthUtil.hashPersonalMessage(EthUtil.toBuffer(transaction.toU8a()));
         //const sig1 = EthUtil.ecsign(hashed1, EthUtil.toBuffer(ecdsaSeed));
 
+        // hash SCALE encoded transaction call
         const hashedMessage = web3.eth.accounts.hashMessage(polkadotUtil.u8aToHex(transaction.toU8a()));
         const sig = EthCrypto.sign(ecdsaSeed, hashedMessage);
 
@@ -89,16 +90,11 @@ describe('Plasm custom signature tests', () => {
             aliceAddress: alicePlasm.address,
         });
 
-        const addr = EthCrypto.recover(sig, hashedMessage);
-
-        console.log(addr);
-        console.log(polkadotUtil.u8aToHex(bobPlasm.publicKey));
-        console.log(bobEth.address);
-        const addrFromPub = EthUtil.pubToAddress(EthUtil.toBuffer(bobPlasm.publicKey), true);
-        console.log(addrFromPub);
+        // ensure that the signer is successfully recovered
+        expect(bobEth.address).toEqual(EthCrypto.recover(sig, hashedMessage));
 
         try {
-            await plasm.tx.ecdsaSignature.call(transaction, bobPlasm.addressRaw, sig).send();
+            await plasm.tx.ecdsaSignature.call(transaction, bobPlasm.addressRaw, polkadotUtil.hexToU8a(sig)).send();
         } catch (e) {
             // eslint-disable-next-line jest/no-conditional-expect
             expect(e.toString()).toMatch('1010: Invalid Transaction: Transaction has a bad signature');

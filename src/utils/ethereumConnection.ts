@@ -1,7 +1,6 @@
 import Web3 from 'web3';
 import * as ethereumUtils from 'ethereumjs-util';
 import * as EthCrypto from 'eth-crypto';
-import * as EthSigUtil from 'eth-sig-util';
 
 export const isDappInjected = () => {
     return typeof (window as any).ethereum !== 'undefined';
@@ -65,7 +64,7 @@ export const getAccountPubKey = async (account: string) => {
 
     // ask the user to sign the message
     // the password parameter is only used for specific wallets (most wallets will prompt the user to provide it)
-    const sig = '0x' + (await web3.eth.personal.sign(message, account, '')).slice(2);
+    const sig = await web3.eth.personal.sign(message, account, '');
 
     const res = ethereumUtils.fromRpcSig(sig);
 

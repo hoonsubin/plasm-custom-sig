@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@material-ui/core';
 import * as utils from '../utils';
 import * as polkadotUtilCrypto from '@polkadot/util-crypto';
+import * as polkadotUtil from '@polkadot/util';
 
 const CustomSigView: React.FC = () => {
     const [ethAccount, setEthAccount] = useState<string>();
@@ -21,6 +22,7 @@ const CustomSigView: React.FC = () => {
                 setEthAccount(res.account);
                 utils.getAccountPubKey(res.account).then((i) => {
                     const _plasmAddr = utils.ecdsaPubKeyToPlasmAddress(i, 42);
+                    console.log(polkadotUtil.u8aToHex(polkadotUtilCrypto.addressToEvm(_plasmAddr)));
                     setPlasmAddr(_plasmAddr);
                 });
             })
