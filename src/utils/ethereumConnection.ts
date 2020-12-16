@@ -57,7 +57,7 @@ export const verifySignature = (account: string, msgString: string, signature: e
     //const compressedPubKey = ethUtil.addHexPrefix(ethCrypto.publicKey.compress(uncompressedPubKey.toString('hex')));
     const recoveredAddress = ethUtil.addHexPrefix(ethUtil.bufferToHex(ethUtil.pubToAddress(uncompressedPubKey)));
 
-    return recoveredAddress.toLowerCase() === account.toLowerCase();
+    return recoveredAddress.toLowerCase() === ethUtil.addHexPrefix(account).toLowerCase();
 };
 
 export const requestClientSignature = async (account: string, message: string) => {

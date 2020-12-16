@@ -3,7 +3,11 @@ import * as polkadotUtils from '@polkadot/util';
 import * as plasmDefinitions from '@plasm/types/interfaces/definitions';
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { Call } from '@polkadot/types/interfaces';
-import { getEthereumRpc, requestClientSignature } from './ethereumConnection';
+import { getEthereumRpc, requestClientSignature, verifySignature } from './ethereumConnection';
+import { Keyring } from '@polkadot/keyring';
+import * as ethUtil from 'ethereumjs-util';
+import ethCrypto from 'eth-crypto';
+
 /**
  * Plasm network enum
  */
@@ -33,6 +37,17 @@ export function ecdsaPubKeyToPlasmAddress(publicKey: string, addressPrefix: numb
     // encode address
     const plasmAddress = polkadotUtilCrypto.encodeAddress(plasmPubKey, addressPrefix);
     return plasmAddress;
+}
+
+export function getSs58PubKeyHex(
+    address: string,
+    addressType: 'ed25519' | 'sr25519' | 'ecdsa',
+    addressPrefix: number = NETWORK_PREFIX,
+) {
+    const keyRing = new Keyring({ ss58Format: addressPrefix, type: addressType });
+    const chainKeyPair = keyRing.addFromAddress(address);
+    // returns a compressed public key
+    return polkadotUtils.u8aToHex(chainKeyPair.publicKey);
 }
 
 /**
@@ -94,15 +109,38 @@ export const signCall = async (
     const api = await getPlasmInstance(PlasmNetwork.Local);
 
     // a serialized SCALE-encoded call object
-    const encodedCall = polkadotUtils.u8aToHex(call.toU8a()).replace('0x', '');
+    // we can remove the 0x prefix to sign it as a utf-8 or a hex string
+    const encodedCall = polkadotUtils.u8aToHex(call.toU8a(), undefined, false);
 
+    // obtain user signature
     const signature = signMethod
         ? await signMethod(ethAccount, encodedCall)
         : await requestClientSignature(ethAccount, encodedCall);
 
-    //const sig = polkadotUtils.hexToU8a(await requestClientSignature(account, encodedCall));
+    const ecSig = ethUtil.fromRpcSig(signature);
+    const msgHash = ethUtil.hashPersonalMessage(Buffer.from(encodedCall, 'hex'));
 
-    console.log({ txCall: JSON.stringify(call.toHuman()), signature: signature });
+    if (!ethUtil.isValidSignature(ecSig.v, ecSig.r, ecSig.s)) {
+        throw new Error('Invalid signature');
+    }
+
+    const uncompressedPubKey = ethUtil.ecrecover(msgHash, ecSig.v, ecSig.r, ecSig.s);
+    const recoveredPubKey = ethUtil.addHexPrefix(ethCrypto.publicKey.compress(ethUtil.bufferToHex(uncompressedPubKey)));
+
+    const ss58PublicKey = getSs58PubKeyHex(senderSs58, 'ecdsa');
+
+    console.log({
+        signedMessage: encodedCall,
+        senderSs58,
+        ss58PublicKey,
+        recoveredPubKey,
+        txCall: JSON.stringify(call.toHuman()),
+        signature,
+    });
+
+    if (ss58PublicKey !== recoveredPubKey) {
+        throw new Error('Invalid signature');
+    }
 
     const res = await api.tx.ecdsaSignature.call(call, senderSs58, polkadotUtils.hexToU8a(signature)).send();
 
