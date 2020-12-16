@@ -97,9 +97,14 @@ describe('Plasm custom signature tests', () => {
             bobAddress: bobPlasm.address,
             aliceAddress: alicePlasm.address,
         });
-
         // ensure that the signer is successfully recovered
         expect(bobEth.address).toEqual(EthCrypto.recover(sig, hashedMessage));
+
+        const ecRecovered = utils.recoverPublicKey(fullSigObject, EthUtil.toBuffer(hashedMessage));
+
+        const ecdsaPub = utils.ecdsaPubKeyToPlasmAddress(polkadotUtil.u8aToHex(bobPlasm.publicKey), 42);
+        console.log(`${ecdsaPub}\n${ecRecovered}`);
+        //console.log(EthCrypto.publicKeyByPrivateKey(bobEth.privateKey));
 
         try {
             await plasm.tx.ecdsaSignature.call(transaction, bobPlasm.addressRaw, polkadotUtil.hexToU8a(sig)).send();
@@ -107,6 +112,11 @@ describe('Plasm custom signature tests', () => {
             // eslint-disable-next-line jest/no-conditional-expect
             expect(e.toString()).toMatch('1010: Invalid Transaction: Transaction has a bad signature');
         }
+    });
+
+    it('test buffer environment', () => {
+        const stringBuff = Buffer.from('hello');
+        expect(stringBuff instanceof Uint8Array).toBeTruthy();
     });
 
     afterAll(async () => {

@@ -89,9 +89,19 @@ export const signCall = async (senderSs58: string, call: Call) => {
     const { account } = await getEthereumRpc();
     const api = await getPlasmInstance(PlasmNetwork.Local);
 
-    const sig = polkadotUtils.hexToU8a(await requestClientSignature(account, polkadotUtils.u8aToHex(call.toU8a())));
-    console.log({ txCall: JSON.stringify(call), signature: polkadotUtils.u8aToHex(sig) });
-    const res = await api.tx.ecdsaSignature.call(call, senderSs58, sig).send();
+    // a serialized SCALE-encoded call object
+    const encodedCall = polkadotUtils.u8aToHex(call.toU8a());
+
+    const sig = polkadotUtils.hexToU8a(await requestClientSignature(account, encodedCall));
+
+    console.log({ txCall: JSON.stringify(call.toHuman()), signature: polkadotUtils.u8aToHex(sig) });
+
+    // trying to serialize the call to U8A will return the error
+    // Error: createType(Call):: Call: failed decoding ecdsaSignature.
+    // call:: Struct: failed on args: {"call":"Call","account":"AccountId","signature":"Signature"}:: Struct: failed on call: Call:: findMetaCall: Unable to find Call with index 0x9c04/[156,4]
+    const res = await api.tx.ecdsaSignature
+        .call(call, polkadotUtilCrypto.base58Decode(senderSs58), polkadotUtils.u8aToBuffer(sig))
+        .send();
 
     return res;
 };

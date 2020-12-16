@@ -1,6 +1,7 @@
 import Web3 from 'web3';
-import * as ethereumUtils from 'ethereumjs-util';
-import * as EthCrypto from 'eth-crypto';
+import { provider } from 'web3-core';
+import * as ethUtil from 'ethereumjs-util';
+import ethCrypto from 'eth-crypto';
 
 export const isDappInjected = () => {
     return typeof (window as any).ethereum !== 'undefined';
@@ -11,9 +12,9 @@ export const isDappInjected = () => {
  * and assign the wrapped web3 instance to the window global variable.
  * If the client has granted access, this function will return an existing instance of web3.
  */
-export const getEthereumRpc = async () => {
+export const getEthereumRpc = async (endpoint?: provider) => {
     if (window.ethApi) return window.ethApi;
-    // Modern dapp browsers...
+
     if (isDappInjected()) {
         console.log('Dapp browser detected');
         const { ethereum } = window as any;
@@ -31,8 +32,7 @@ export const getEthereumRpc = async () => {
     }
     // Fallback to localhost; use dev console port by default...
     else {
-        const provider = new Web3.providers.HttpProvider('http://127.0.0.1:8545');
-        const web3 = new Web3(provider);
+        const web3 = new Web3(endpoint || 'http://127.0.0.1:8545');
         const accountId = (await web3.eth.getAccounts())[0];
         console.log('No web3 instance injected, using Local web3.');
         const api = {
@@ -47,11 +47,15 @@ export const getEthereumRpc = async () => {
 
 export const requestClientSignature = async (account: string, message: string) => {
     const { web3 } = await getEthereumRpc();
+    //const msgHash = ethereumUtils.hashPersonalMessage(Buffer.from(message, encoding));
+    //const msgHash = web3.eth.accounts.hashMessage(message);
 
-    //const hashedMessage = web3.eth.accounts.hashMessage(message);
-    // this uses the 'eth_sign' method to sign data
+    // this uses the 'personal_sign' method to sign data
     const signature = await web3.eth.personal.sign(message, account, '');
-    console.log(signature);
+    // this uses the 'eth_sign' method to sign data
+    //const signature = await web3.eth.sign(msgHash.toString('hex'), account);
+
+    console.log({ message, signature });
     return signature;
 };
 
@@ -66,17 +70,26 @@ export const getAccountPubKey = async (account: string) => {
     // the password parameter is only used for specific wallets (most wallets will prompt the user to provide it)
     const sig = await web3.eth.personal.sign(message, account, '');
 
-    const res = ethereumUtils.fromRpcSig(sig);
+    const res = ethUtil.fromRpcSig(sig);
 
-    if (!ethereumUtils.isValidSignature(res.v, res.r, res.s)) {
+    if (!ethUtil.isValidSignature(res.v, res.r, res.s)) {
         throw new Error('Invalid signature');
     }
 
-    const publicKey = ethereumUtils.bufferToHex(
-        ethereumUtils.ecrecover(ethereumUtils.toBuffer(hash), res.v, res.r, res.s),
-    );
+    return recoverPublicKey(res, ethUtil.toBuffer(hash));
+    // const publicKey = ethereumUtils.bufferToHex(
+    //     ethereumUtils.ecrecover(ethereumUtils.toBuffer(hash), res.v, res.r, res.s),
+    // );
 
-    const compressedPubKey = '0x' + EthCrypto.publicKey.compress(publicKey.replace('0x', ''));
+    // const compressedPubKey = '0x' + EthCrypto.publicKey.compress(publicKey.replace('0x', ''));
+
+    // return compressedPubKey;
+};
+
+export const recoverPublicKey = (signature: ethUtil.ECDSASignature, msgHash: Buffer) => {
+    const publicKey = ethUtil.bufferToHex(ethUtil.ecrecover(msgHash, signature.v, signature.r, signature.s));
+
+    const compressedPubKey = '0x' + ethCrypto.publicKey.compress(publicKey.replace('0x', ''));
 
     return compressedPubKey;
 };

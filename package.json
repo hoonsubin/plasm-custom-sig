@@ -1,5 +1,11 @@
 {
     "name": "plasm-custom-sig-app",
+    "jest": {
+        "setupFiles": [
+            "dotenv/config"
+        ],
+        "testEnvironment": "jest-environment-uint8array"
+    },
     "version": "1.0.0",
     "private": true,
     "dependencies": {
@@ -55,12 +61,6 @@
             "prettier/@typescript-eslint",
             "plugin:prettier/recommended"
         ]
-    },
-    "jest": {
-        "setupFiles": [
-            "dotenv/config"
-        ],
-        "testEnvironment": "jest-environment-uint8array"
     },
     "scripts": {
         "start": "react-app-rewired start",
