@@ -22,7 +22,6 @@ const CustomSigView: React.FC = () => {
                 setEthAccount(res.account);
                 utils.getAccountPubKey(res.account).then((i) => {
                     const _plasmAddr = utils.ecdsaPubKeyToPlasmAddress(i, 42);
-                    console.log(polkadotUtil.u8aToHex(polkadotUtilCrypto.addressToEvm(_plasmAddr)));
                     setPlasmAddr(_plasmAddr);
                 });
             })
@@ -46,7 +45,7 @@ const CustomSigView: React.FC = () => {
             utils
                 .sendCustomTransfer(recipient, plasmAddr, sendVal)
                 .then((i) => {
-                    console.log('sent transaction' + i.toHex());
+                    console.log('made transaction hash' + i.toHex());
                 })
                 .catch((e) => {
                     setErrorMsg(e.message);
@@ -54,6 +53,10 @@ const CustomSigView: React.FC = () => {
                 .finally(() => {
                     setLoading(false);
                 });
+        } else {
+            const err = isValid[1] || undefined;
+            setErrorMsg(err);
+            throw new Error(err);
         }
     };
 

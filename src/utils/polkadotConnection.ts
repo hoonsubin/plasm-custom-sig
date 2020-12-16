@@ -4,7 +4,6 @@ import * as plasmDefinitions from '@plasm/types/interfaces/definitions';
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { Call } from '@polkadot/types/interfaces';
 import { getEthereumRpc, requestClientSignature } from './ethereumConnection';
-
 /**
  * Plasm network enum
  */
@@ -14,11 +13,13 @@ export enum PlasmNetwork {
     Main,
 }
 
+export const NETWORK_PREFIX = 42;
+
 /**
  * generates a Plasm public address with the given ethereum public key
  * @param ethPubKey an compressed ECDSA public key. With or without the 0x prefix
  */
-export function ecdsaPubKeyToPlasmAddress(publicKey: string, addressPrefix: number = 5) {
+export function ecdsaPubKeyToPlasmAddress(publicKey: string, addressPrefix: number = NETWORK_PREFIX) {
     // converts a given hex string into Uint8Array
     const toByteArray = (hexString: string) => {
         const result = [];
@@ -27,7 +28,6 @@ export function ecdsaPubKeyToPlasmAddress(publicKey: string, addressPrefix: numb
         }
         return new Uint8Array(result);
     };
-
     // hash to blake2
     const plasmPubKey = polkadotUtilCrypto.blake2AsU8a(toByteArray(publicKey.replace('0x', '')), 256);
     // encode address
@@ -85,23 +85,26 @@ export const getTransferCall = async (to: string, amount: string) => {
     return transaction;
 };
 
-export const signCall = async (senderSs58: string, call: Call) => {
-    const { account } = await getEthereumRpc();
+export const signCall = async (
+    senderSs58: string,
+    call: Call,
+    signMethod?: (signerAddress: string, message: string) => Promise<string>,
+) => {
+    const ethAccount = (await getEthereumRpc()).account;
     const api = await getPlasmInstance(PlasmNetwork.Local);
 
     // a serialized SCALE-encoded call object
-    const encodedCall = polkadotUtils.u8aToHex(call.toU8a());
+    const encodedCall = polkadotUtils.u8aToHex(call.toU8a()).replace('0x', '');
 
-    const sig = polkadotUtils.hexToU8a(await requestClientSignature(account, encodedCall));
+    const signature = signMethod
+        ? await signMethod(ethAccount, encodedCall)
+        : await requestClientSignature(ethAccount, encodedCall);
 
-    console.log({ txCall: JSON.stringify(call.toHuman()), signature: polkadotUtils.u8aToHex(sig) });
+    //const sig = polkadotUtils.hexToU8a(await requestClientSignature(account, encodedCall));
 
-    // trying to serialize the call to U8A will return the error
-    // Error: createType(Call):: Call: failed decoding ecdsaSignature.
-    // call:: Struct: failed on args: {"call":"Call","account":"AccountId","signature":"Signature"}:: Struct: failed on call: Call:: findMetaCall: Unable to find Call with index 0x9c04/[156,4]
-    const res = await api.tx.ecdsaSignature
-        .call(call, polkadotUtilCrypto.base58Decode(senderSs58), polkadotUtils.u8aToBuffer(sig))
-        .send();
+    console.log({ txCall: JSON.stringify(call.toHuman()), signature: signature });
+
+    const res = await api.tx.ecdsaSignature.call(call, senderSs58, polkadotUtils.hexToU8a(signature)).send();
 
     return res;
 };

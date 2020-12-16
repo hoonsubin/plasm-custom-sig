@@ -3,7 +3,6 @@ import Web3 from 'web3';
 import { ApiPromise } from '@polkadot/api';
 import { Keyring } from '@polkadot/keyring';
 import * as polkadotUtil from '@polkadot/util';
-import * as polkadotCryptoUtil from '@polkadot/util-crypto';
 import * as EthUtil from 'ethereumjs-util';
 import * as EthCrypto from 'eth-crypto';
 import * as EthSigUtil from 'eth-sig-util';
@@ -19,11 +18,6 @@ const listAllChainMethods = (plasmApi: ApiPromise) => {
     });
 
     return methods;
-};
-
-const arrayBufferToBinary = (buffer: Buffer) => {
-    const uint8 = new Uint8Array(buffer);
-    return uint8.reduce((binary, uint8) => binary + uint8.toString(2), '');
 };
 
 describe('Plasm custom signature tests', () => {
@@ -55,7 +49,7 @@ describe('Plasm custom signature tests', () => {
             (await rpcConnection.plasm.isReady).isConnected && !!rpcConnection.web3.eth.accounts.currentProvider;
 
         if (!isConnected) throw new Error('Cannot connect to the blockchain');
-        const addrPref = plasm.registry.chainSS58 || 42;
+        const addrPref = plasm.registry.chainSS58 || utils.NETWORK_PREFIX;
 
         keyring = new Keyring({ type: 'sr25519', ss58Format: addrPref });
         console.log('Available chain methods:');
@@ -102,7 +96,10 @@ describe('Plasm custom signature tests', () => {
 
         const ecRecovered = utils.recoverPublicKey(fullSigObject, EthUtil.toBuffer(hashedMessage));
 
-        const ecdsaPub = utils.ecdsaPubKeyToPlasmAddress(polkadotUtil.u8aToHex(bobPlasm.publicKey), 42);
+        const ecdsaPub = utils.ecdsaPubKeyToPlasmAddress(
+            polkadotUtil.u8aToHex(bobPlasm.publicKey),
+            utils.NETWORK_PREFIX,
+        );
         console.log(`${ecdsaPub}\n${ecRecovered}`);
         //console.log(EthCrypto.publicKeyByPrivateKey(bobEth.privateKey));
 

@@ -45,17 +45,36 @@ export const getEthereumRpc = async (endpoint?: provider) => {
     }
 };
 
+export const verifySignature = (account: string, msgString: string, signature: ethUtil.ECDSASignature) => {
+    const encodingType = ethUtil.isHexPrefixed(msgString) ? 'hex' : 'utf8';
+    const msgHash = ethUtil.hashPersonalMessage(Buffer.from(msgString, encodingType));
+
+    if (!ethUtil.isValidSignature(signature.v, signature.r, signature.s)) {
+        return false;
+    }
+
+    const uncompressedPubKey = ethUtil.ecrecover(msgHash, signature.v, signature.r, signature.s);
+    //const compressedPubKey = ethUtil.addHexPrefix(ethCrypto.publicKey.compress(uncompressedPubKey.toString('hex')));
+    const recoveredAddress = ethUtil.addHexPrefix(ethUtil.bufferToHex(ethUtil.pubToAddress(uncompressedPubKey)));
+
+    return recoveredAddress.toLowerCase() === account.toLowerCase();
+};
+
 export const requestClientSignature = async (account: string, message: string) => {
     const { web3 } = await getEthereumRpc();
     //const msgHash = ethereumUtils.hashPersonalMessage(Buffer.from(message, encoding));
-    //const msgHash = web3.eth.accounts.hashMessage(message);
 
     // this uses the 'personal_sign' method to sign data
     const signature = await web3.eth.personal.sign(message, account, '');
+
     // this uses the 'eth_sign' method to sign data
     //const signature = await web3.eth.sign(msgHash.toString('hex'), account);
 
-    console.log({ message, signature });
+    const res = ethUtil.fromRpcSig(signature);
+
+    if (!verifySignature(account, message, res)) {
+        throw new Error('Invalid signature');
+    }
     return signature;
 };
 
@@ -72,18 +91,11 @@ export const getAccountPubKey = async (account: string) => {
 
     const res = ethUtil.fromRpcSig(sig);
 
-    if (!ethUtil.isValidSignature(res.v, res.r, res.s)) {
+    if (!verifySignature(account, message, res)) {
         throw new Error('Invalid signature');
     }
 
     return recoverPublicKey(res, ethUtil.toBuffer(hash));
-    // const publicKey = ethereumUtils.bufferToHex(
-    //     ethereumUtils.ecrecover(ethereumUtils.toBuffer(hash), res.v, res.r, res.s),
-    // );
-
-    // const compressedPubKey = '0x' + EthCrypto.publicKey.compress(publicKey.replace('0x', ''));
-
-    // return compressedPubKey;
 };
 
 export const recoverPublicKey = (signature: ethUtil.ECDSASignature, msgHash: Buffer) => {
