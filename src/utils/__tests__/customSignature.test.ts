@@ -21,6 +21,11 @@ const listAllChainMethods = (plasmApi: ApiPromise) => {
     return methods;
 };
 
+const arrayBufferToBinary = (buffer: Buffer) => {
+    const uint8 = new Uint8Array(buffer);
+    return uint8.reduce((binary, uint8) => binary + uint8.toString(2), '');
+};
+
 describe('Plasm custom signature tests', () => {
     // set the initial values as empty
     let rpcConnection: {
@@ -76,7 +81,10 @@ describe('Plasm custom signature tests', () => {
         //const sig1 = EthUtil.ecsign(hashed1, EthUtil.toBuffer(ecdsaSeed));
 
         // hash SCALE encoded transaction call
-        const hashedMessage = web3.eth.accounts.hashMessage(polkadotUtil.u8aToHex(transaction.toU8a()));
+        const hashedMessage = web3.eth.accounts.hashMessage(
+            polkadotUtil.u8aToBuffer(transaction.toU8a()).toString('binary'),
+        );
+
         const sig = EthCrypto.sign(ecdsaSeed, hashedMessage);
 
         const fullSigObject = EthUtil.fromRpcSig(sig);
