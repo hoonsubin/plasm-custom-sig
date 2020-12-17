@@ -110,7 +110,7 @@ export const signCall = async (
 
     // a serialized SCALE-encoded call object
     // we can remove the 0x prefix to sign it as a utf-8 or a hex string
-    const encodedCall = polkadotUtils.u8aToHex(call.toU8a(), undefined, false);
+    const encodedCall = polkadotUtils.u8aToHex(call.toU8a());
 
     // obtain user signature
     const signature = signMethod
@@ -118,29 +118,21 @@ export const signCall = async (
         : await requestClientSignature(ethAccount, encodedCall);
 
     const ecSig = ethUtil.fromRpcSig(signature);
-    const msgHash = ethUtil.hashPersonalMessage(Buffer.from(encodedCall, 'hex'));
+
+    //const msgHash = ethUtil.hashPersonalMessage(Buffer.from(encodedCall, 'hex'));
 
     if (!ethUtil.isValidSignature(ecSig.v, ecSig.r, ecSig.s)) {
         throw new Error('Invalid signature');
     }
 
-    const uncompressedPubKey = ethUtil.ecrecover(msgHash, ecSig.v, ecSig.r, ecSig.s);
-    const recoveredPubKey = ethUtil.addHexPrefix(ethCrypto.publicKey.compress(ethUtil.bufferToHex(uncompressedPubKey)));
-
-    const ss58PublicKey = getSs58PubKeyHex(senderSs58, 'ecdsa');
+    //const ss58PublicKey = getSs58PubKeyHex(senderSs58, 'ecdsa');
 
     console.log({
         signedMessage: encodedCall,
         senderSs58,
-        ss58PublicKey,
-        recoveredPubKey,
-        txCall: JSON.stringify(call.toHuman()),
+        txCall: JSON.stringify(call),
         signature,
     });
-
-    if (ss58PublicKey !== recoveredPubKey) {
-        throw new Error('Invalid signature');
-    }
 
     const res = await api.tx.ecdsaSignature.call(call, senderSs58, polkadotUtils.hexToU8a(signature)).send();
 

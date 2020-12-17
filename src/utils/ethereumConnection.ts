@@ -69,12 +69,6 @@ export const requestClientSignature = async (account: string, message: string) =
 
     // this uses the 'eth_sign' method to sign data
     //const signature = await web3.eth.sign(msgHash.toString('hex'), account);
-
-    const res = ethUtil.fromRpcSig(signature);
-
-    if (!verifySignature(account, message, res)) {
-        throw new Error('Invalid signature');
-    }
     return signature;
 };
 
