@@ -3,10 +3,10 @@ import * as polkadotUtils from '@polkadot/util';
 import * as plasmDefinitions from '@plasm/types/interfaces/definitions';
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { Call } from '@polkadot/types/interfaces';
-import { getEthereumRpc, requestClientSignature, verifySignature } from './ethereumConnection';
+import { SubmittableExtrinsic } from '@polkadot/api/types';
+import { getEthereumRpc, requestClientSignature } from './ethereumConnection';
 import { Keyring } from '@polkadot/keyring';
 import * as ethUtil from 'ethereumjs-util';
-import ethCrypto from 'eth-crypto';
 
 /**
  * Plasm network enum
@@ -17,23 +17,25 @@ export enum PlasmNetwork {
     Main,
 }
 
+export const DEFAULT_NETWORK = PlasmNetwork.Local;
+
 export const NETWORK_PREFIX = 42;
 
 /**
  * generates a Plasm public address with the given ethereum public key
- * @param ethPubKey an compressed ECDSA public key. With or without the 0x prefix
+ * @param ethPubKey a 33 bytes compressed ECDSA public key. With or without the 0x prefix
  */
 export function ecdsaPubKeyToPlasmAddress(publicKey: string, addressPrefix: number = NETWORK_PREFIX) {
-    // converts a given hex string into Uint8Array
-    const toByteArray = (hexString: string) => {
-        const result = [];
-        for (let i = 0; i < hexString.length; i += 2) {
-            result.push(parseInt(hexString.substr(i, 2), 16));
-        }
-        return new Uint8Array(result);
-    };
+    // adds the 0x prefix if it wasn't added
+    publicKey = ethUtil.addHexPrefix(publicKey);
+
+    // check the input
+    if (!ethUtil.isValidPublic(ethUtil.toBuffer(publicKey), true)) {
+        throw new Error(`${publicKey} is not a valid ECDSA public key`);
+    }
+
     // hash to blake2
-    const plasmPubKey = polkadotUtilCrypto.blake2AsU8a(toByteArray(publicKey.replace('0x', '')), 256);
+    const plasmPubKey = polkadotUtilCrypto.blake2AsU8a(polkadotUtils.hexToU8a(publicKey), 256);
     // encode address
     const plasmAddress = polkadotUtilCrypto.encodeAddress(plasmPubKey, addressPrefix);
     return plasmAddress;
@@ -94,7 +96,7 @@ export async function getPlasmInstance(network?: PlasmNetwork) {
 }
 
 export const getTransferCall = async (to: string, amount: string) => {
-    const api = await getPlasmInstance(PlasmNetwork.Local);
+    const api = await getPlasmInstance(DEFAULT_NETWORK);
 
     const transaction = api.tx.balances.transfer(to, amount);
     return transaction;
@@ -102,11 +104,11 @@ export const getTransferCall = async (to: string, amount: string) => {
 
 export const signCall = async (
     senderSs58: string,
-    call: Call,
+    call: SubmittableExtrinsic<any>,
     signMethod?: (signerAddress: string, message: string) => Promise<string>,
 ) => {
     const ethAccount = (await getEthereumRpc()).account;
-    const api = await getPlasmInstance(PlasmNetwork.Local);
+    const api = await getPlasmInstance(DEFAULT_NETWORK);
 
     // a serialized SCALE-encoded call object
     // we can remove the 0x prefix to sign it as a utf-8 or a hex string
@@ -119,19 +121,16 @@ export const signCall = async (
 
     const ecSig = ethUtil.fromRpcSig(signature);
 
-    //const msgHash = ethUtil.hashPersonalMessage(Buffer.from(encodedCall, 'hex'));
-
     if (!ethUtil.isValidSignature(ecSig.v, ecSig.r, ecSig.s)) {
-        throw new Error('Invalid signature');
+        throw new Error('Invalid signature returned');
     }
-
-    //const ss58PublicKey = getSs58PubKeyHex(senderSs58, 'ecdsa');
 
     console.log({
         signedMessage: encodedCall,
-        senderSs58,
-        txCall: JSON.stringify(call),
         signature,
+        messageHash: ethUtil.bufferToHex(ethUtil.hashPersonalMessage(ethUtil.toBuffer(encodedCall))),
+        senderSs58,
+        txCall: JSON.stringify(call.toHuman()),
     });
 
     const res = await api.tx.ecdsaSignature.call(call, senderSs58, polkadotUtils.hexToU8a(signature)).send();
@@ -140,7 +139,9 @@ export const signCall = async (
 };
 
 export const sendCustomTransfer = async (to: string, from: string, amount: string) => {
-    const transactionCall = await getTransferCall(to, amount);
-    const txHash = await signCall(from, transactionCall as any);
+    const api = await getPlasmInstance(DEFAULT_NETWORK);
+
+    const transaction = api.tx.balances.transfer(to, amount);
+    const txHash = await signCall(from, transaction);
     return txHash;
 };
