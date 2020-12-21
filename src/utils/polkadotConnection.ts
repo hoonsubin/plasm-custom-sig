@@ -110,8 +110,8 @@ export const signCall = async (
     const api = await getPlasmInstance(DEFAULT_NETWORK);
 
     // a serialized SCALE-encoded call object
-    // we can remove the 0x prefix to sign it as a utf-8 or a hex string
-    const encodedCall = polkadotUtils.u8aToHex(call.toU8a());
+    // note: the .slice(2) is a hard-coded value for testing
+    const encodedCall = '0x' + polkadotUtils.u8aToHex(call.method.toU8a(), undefined, false).slice(2);
     // obtain user signature
     const signature = signMethod
         ? await signMethod(ethAccount, encodedCall)
@@ -129,12 +129,12 @@ export const signCall = async (
         message: encodedCall,
         messageHash: ethUtil.bufferToHex(msgHash),
         signature,
-        senderSs58,
+        senderEthAddress: ethAccount,
         recoveredSs58: recSs58,
         txCall: JSON.stringify(call.toHuman()),
     });
 
-    const res = await api.tx.ecdsaSignature.call(call, senderSs58, polkadotUtils.hexToU8a(signature)).send();
+    const res = await api.tx.ecdsaSignature.call(call.method, senderSs58, polkadotUtils.hexToU8a(signature)).send();
 
     return res;
 };
