@@ -76,13 +76,10 @@ export const requestClientSignature = async (account: string, message: string) =
 
     // this uses the 'personal_sign' method to sign data
     const signature = await web3.eth.personal.sign(message, account, '');
-
-    // this uses the 'eth_sign' method to sign data
-    //const signature = await web3.eth.sign(msgHash.toString('hex'), account);
     return signature;
 };
 
-export const getAccountPubKey = async (account: string) => {
+export const getAccountPubKeyRpc = async (account: string) => {
     const { web3 } = await getEthereumRpc();
 
     const message = 'Sign in to Plasm network';

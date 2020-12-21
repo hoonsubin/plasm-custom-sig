@@ -19,7 +19,7 @@ const CustomSigView: React.FC = () => {
             .getEthereumRpc()
             .then((res) => {
                 setEthAccount(res.account);
-                utils.getAccountPubKey(res.account).then((i) => {
+                utils.getAccountPubKeyRpc(res.account).then((i) => {
                     const _plasmAddr = utils.ecdsaPubKeyToPlasmAddress(i, utils.NETWORK_PREFIX);
                     setPlasmAddr(_plasmAddr);
                 });

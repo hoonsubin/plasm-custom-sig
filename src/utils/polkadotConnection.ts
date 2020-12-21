@@ -2,11 +2,11 @@ import * as polkadotUtilCrypto from '@polkadot/util-crypto';
 import * as polkadotUtils from '@polkadot/util';
 import * as plasmDefinitions from '@plasm/types/interfaces/definitions';
 import { ApiPromise, WsProvider } from '@polkadot/api';
-import { Call } from '@polkadot/types/interfaces';
 import { SubmittableExtrinsic } from '@polkadot/api/types';
 import { getEthereumRpc, requestClientSignature } from './ethereumConnection';
 import { Keyring } from '@polkadot/keyring';
 import * as ethUtil from 'ethereumjs-util';
+import * as ethConnections from './ethereumConnection';
 
 /**
  * Plasm network enum
@@ -83,7 +83,6 @@ export async function getPlasmInstance(network?: PlasmNetwork) {
             ...types,
             // chain-specific overrides
             Address: 'GenericAddress',
-            Keys: 'SessionKeys4',
             GenericAddress: 'AccountId',
         },
     });
@@ -113,7 +112,6 @@ export const signCall = async (
     // a serialized SCALE-encoded call object
     // we can remove the 0x prefix to sign it as a utf-8 or a hex string
     const encodedCall = polkadotUtils.u8aToHex(call.toU8a());
-
     // obtain user signature
     const signature = signMethod
         ? await signMethod(ethAccount, encodedCall)
@@ -124,12 +122,15 @@ export const signCall = async (
     if (!ethUtil.isValidSignature(ecSig.v, ecSig.r, ecSig.s)) {
         throw new Error('Invalid signature returned');
     }
+    const msgHash = ethUtil.hashPersonalMessage(ethUtil.toBuffer(encodedCall));
+    const recSs58 = ecdsaPubKeyToPlasmAddress(ethConnections.recoverPublicKey(ecSig, msgHash));
 
     console.log({
-        signedMessage: encodedCall,
+        message: encodedCall,
+        messageHash: ethUtil.bufferToHex(msgHash),
         signature,
-        messageHash: ethUtil.bufferToHex(ethUtil.hashPersonalMessage(ethUtil.toBuffer(encodedCall))),
         senderSs58,
+        recoveredSs58: recSs58,
         txCall: JSON.stringify(call.toHuman()),
     });
 
