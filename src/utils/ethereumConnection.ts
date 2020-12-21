@@ -45,19 +45,29 @@ export const getEthereumRpc = async (endpoint?: provider) => {
     }
 };
 
-export const verifySignature = (account: string, msgString: string, signature: ethUtil.ECDSASignature) => {
+export const recoverFromSig = (account: string, msgString: string, signature: ethUtil.ECDSASignature) => {
     const encodingType = ethUtil.isHexPrefixed(msgString) ? 'hex' : 'utf8';
     const msgHash = ethUtil.hashPersonalMessage(Buffer.from(msgString, encodingType));
 
     if (!ethUtil.isValidSignature(signature.v, signature.r, signature.s)) {
-        return false;
+        throw new Error('Invalid signature provided');
+    }
+    if (!ethUtil.isValidAddress(account)) {
+        throw new Error('Invalid address provided');
     }
 
-    const uncompressedPubKey = ethUtil.ecrecover(msgHash, signature.v, signature.r, signature.s);
-    //const compressedPubKey = ethUtil.addHexPrefix(ethCrypto.publicKey.compress(uncompressedPubKey.toString('hex')));
-    const recoveredAddress = ethUtil.addHexPrefix(ethUtil.bufferToHex(ethUtil.pubToAddress(uncompressedPubKey)));
+    const publicKey = ethUtil.ecrecover(msgHash, signature.v, signature.r, signature.s);
+    // const compressedPubKey = ethUtil.addHexPrefix(
+    //     ethCrypto.publicKey.compress(ethUtil.bufferToHex(uncompressedPubKey)),
+    // );
 
-    return recoveredAddress.toLowerCase() === ethUtil.addHexPrefix(account).toLowerCase();
+    const recoveredAddress = ethUtil.addHexPrefix(ethUtil.bufferToHex(ethUtil.pubToAddress(publicKey)));
+
+    return {
+        isValid: recoveredAddress.toLowerCase() === account.toLowerCase(),
+        publicKey: ethUtil.bufferToHex(publicKey),
+        recoveredAddress,
+    };
 };
 
 export const requestClientSignature = async (account: string, message: string) => {
@@ -66,13 +76,10 @@ export const requestClientSignature = async (account: string, message: string) =
 
     // this uses the 'personal_sign' method to sign data
     const signature = await web3.eth.personal.sign(message, account, '');
-
-    // this uses the 'eth_sign' method to sign data
-    //const signature = await web3.eth.sign(msgHash.toString('hex'), account);
     return signature;
 };
 
-export const getAccountPubKey = async (account: string) => {
+export const getAccountPubKeyRpc = async (account: string) => {
     const { web3 } = await getEthereumRpc();
 
     const message = 'Sign in to Plasm network';
@@ -85,7 +92,7 @@ export const getAccountPubKey = async (account: string) => {
 
     const res = ethUtil.fromRpcSig(sig);
 
-    if (!verifySignature(account, message, res)) {
+    if (!recoverFromSig(account, message, res).isValid) {
         throw new Error('Invalid signature');
     }
 
@@ -93,9 +100,14 @@ export const getAccountPubKey = async (account: string) => {
 };
 
 export const recoverPublicKey = (signature: ethUtil.ECDSASignature, msgHash: Buffer) => {
-    const publicKey = ethUtil.bufferToHex(ethUtil.ecrecover(msgHash, signature.v, signature.r, signature.s));
+    const uncompPubKey = ethUtil.ecrecover(msgHash, signature.v, signature.r, signature.s);
 
-    const compressedPubKey = '0x' + ethCrypto.publicKey.compress(publicKey.replace('0x', ''));
+    const compressedPubKey = ethUtil.addHexPrefix(
+        ethCrypto.publicKey.compress(ethUtil.stripHexPrefix(ethUtil.bufferToHex(uncompPubKey))),
+    );
 
+    if (!ethUtil.isValidPublic(uncompPubKey) || !ethUtil.isValidPublic(ethUtil.toBuffer(compressedPubKey), true)) {
+        throw new Error('The signature and the message hash does not match');
+    }
     return compressedPubKey;
 };

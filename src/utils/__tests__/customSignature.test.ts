@@ -3,9 +3,8 @@ import Web3 from 'web3';
 import { ApiPromise } from '@polkadot/api';
 import { Keyring } from '@polkadot/keyring';
 import * as polkadotUtil from '@polkadot/util';
-import * as EthUtil from 'ethereumjs-util';
-import * as EthCrypto from 'eth-crypto';
-import * as EthSigUtil from 'eth-sig-util';
+import * as ethUtil from 'ethereumjs-util';
+import * as ethCrypto from 'eth-crypto';
 
 const listAllChainMethods = (plasmApi: ApiPromise) => {
     const allChainPallets = Object.keys(plasmApi.tx);
@@ -19,6 +18,8 @@ const listAllChainMethods = (plasmApi: ApiPromise) => {
 
     return methods;
 };
+
+const ECDSA_PRIV = '0x7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c';
 
 describe('Plasm custom signature tests', () => {
     // set the initial values as empty
@@ -57,31 +58,30 @@ describe('Plasm custom signature tests', () => {
     }, 1000 * 10);
 
     it('signs and send from an ECDSA client', async () => {
-        const ecdsaSeed = '0x7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c';
         const { web3, plasm } = rpcConnection;
 
-        const bobEth = web3.eth.accounts.privateKeyToAccount(ecdsaSeed.replace('0x', ''));
+        const bobEth = web3.eth.accounts.privateKeyToAccount(ECDSA_PRIV.replace('0x', ''));
 
         const alicePlasm = keyring.addFromUri('//Alice', {
             name: 'Alice default',
         });
 
         // note: bob doesn't have any balance yet
-        const bobPlasm = keyring.addFromSeed(polkadotUtil.hexToU8a(ecdsaSeed), undefined, 'ecdsa');
+        const bobPlasm = keyring.addFromSeed(polkadotUtil.hexToU8a(ECDSA_PRIV), undefined, 'ecdsa');
 
         const transaction = plasm.tx.balances.transfer(alicePlasm.address, 5000);
 
-        //const hashed1 = EthUtil.hashPersonalMessage(EthUtil.toBuffer(transaction.toU8a()));
-        //const sig1 = EthUtil.ecsign(hashed1, EthUtil.toBuffer(ecdsaSeed));
+        //const hashed1 = ethUtil.hashPersonalMessage(ethUtil.toBuffer(transaction.toU8a()));
+        //const sig1 = ethUtil.ecsign(hashed1, ethUtil.toBuffer(ecdsaSeed));
 
         // hash SCALE encoded transaction call
         const hashedMessage = web3.eth.accounts.hashMessage(
             polkadotUtil.u8aToBuffer(transaction.toU8a()).toString('binary'),
         );
 
-        const sig = EthCrypto.sign(ecdsaSeed, hashedMessage);
+        const sig = ethCrypto.sign(ECDSA_PRIV, hashedMessage);
 
-        const fullSigObject = EthUtil.fromRpcSig(sig);
+        const fullSigObject = ethUtil.fromRpcSig(sig);
 
         console.log('ECDSA signature info:');
         console.log({
@@ -92,16 +92,16 @@ describe('Plasm custom signature tests', () => {
             aliceAddress: alicePlasm.address,
         });
         // ensure that the signer is successfully recovered
-        expect(bobEth.address).toEqual(EthCrypto.recover(sig, hashedMessage));
+        expect(bobEth.address).toEqual(ethCrypto.recover(sig, hashedMessage));
 
-        const ecRecovered = utils.recoverPublicKey(fullSigObject, EthUtil.toBuffer(hashedMessage));
+        const ecRecovered = utils.recoverPublicKey(fullSigObject, ethUtil.toBuffer(hashedMessage));
 
         const ecdsaPub = utils.ecdsaPubKeyToPlasmAddress(
             polkadotUtil.u8aToHex(bobPlasm.publicKey),
             utils.NETWORK_PREFIX,
         );
         console.log(`${ecdsaPub}\n${ecRecovered}`);
-        //console.log(EthCrypto.publicKeyByPrivateKey(bobEth.privateKey));
+        //console.log(ethCrypto.publicKeyByPrivateKey(bobEth.privateKey));
 
         try {
             await plasm.tx.ecdsaSignature.call(transaction, bobPlasm.addressRaw, polkadotUtil.hexToU8a(sig)).send();
@@ -109,11 +109,6 @@ describe('Plasm custom signature tests', () => {
             // eslint-disable-next-line jest/no-conditional-expect
             expect(e.toString()).toMatch('1010: Invalid Transaction: Transaction has a bad signature');
         }
-    });
-
-    it('test buffer environment', () => {
-        const stringBuff = Buffer.from('hello');
-        expect(stringBuff instanceof Uint8Array).toBeTruthy();
     });
 
     afterAll(async () => {
