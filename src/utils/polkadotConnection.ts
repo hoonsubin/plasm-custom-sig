@@ -103,7 +103,7 @@ export const getTransferCall = async (to: string, amount: string) => {
 
 export const encodeCall = (extrinsic: SubmittableExtrinsic<any>) => {
     // SCALE encode the call object and drop the first byte (version)
-    const encoded = polkadotUtils.u8aToHex(extrinsic.method.toU8a(true).slice(1));
+    const encoded = polkadotUtils.u8aToHex(polkadotUtils.u8aConcat([0], extrinsic.method.toU8a(true).slice(1)));
 
     return encoded;
 };
