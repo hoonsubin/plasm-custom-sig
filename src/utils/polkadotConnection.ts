@@ -101,6 +101,13 @@ export const getTransferCall = async (to: string, amount: string) => {
     return transaction;
 };
 
+export const encodeCall = (extrinsic: SubmittableExtrinsic<any>) => {
+    // SCALE encode the call object and drop the first byte (version)
+    const encoded = polkadotUtils.u8aToHex(extrinsic.method.toU8a(true).slice(1));
+
+    return encoded;
+};
+
 export const signCall = async (
     senderSs58: string,
     call: SubmittableExtrinsic<any>,
@@ -110,8 +117,7 @@ export const signCall = async (
     const api = await getPlasmInstance(DEFAULT_NETWORK);
 
     // a serialized SCALE-encoded call object
-    // note: the .slice(2) is a hard-coded value for testing
-    const encodedCall = '0x' + polkadotUtils.u8aToHex(call.method.toU8a(), undefined, false).slice(2);
+    const encodedCall = encodeCall(call);
     // obtain user signature
     const signature = signMethod
         ? await signMethod(ethAccount, encodedCall)
@@ -134,7 +140,7 @@ export const signCall = async (
         txCall: JSON.stringify(call.toHuman()),
     });
 
-    const res = await api.tx.ecdsaSignature.call(call.method, senderSs58, polkadotUtils.hexToU8a(signature)).send();
+    const res = await api.tx.ecdsaSignature.call(call, senderSs58, polkadotUtils.hexToU8a(signature)).send();
 
     return res;
 };
