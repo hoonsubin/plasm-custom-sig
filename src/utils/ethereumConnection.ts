@@ -76,6 +76,7 @@ export const requestClientSignature = async (account: string, message: string) =
 
     // this uses the 'personal_sign' method to sign data
     const signature = await web3.eth.personal.sign(message, account, '');
+
     return signature;
 };
 

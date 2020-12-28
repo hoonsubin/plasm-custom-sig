@@ -111,7 +111,7 @@ export const encodeCall = (extrinsic: SubmittableExtrinsic<'promise'>) => {
 const signCall = async (
     senderSs58: string,
     call: SubmittableExtrinsic<'promise'>,
-    signMethod?: (signerAddress: string, message: string) => Promise<string>,
+    signMethod: (signerAddress: string, message: string) => Promise<string>,
 ) => {
     const { account } = await getEthereumRpc();
     const api = await getPlasmInstance(DEFAULT_NETWORK);
@@ -120,9 +120,7 @@ const signCall = async (
     const encodedCall = encodeCall(call);
 
     // obtain user signature
-    const signature = signMethod
-        ? await signMethod(account, encodedCall)
-        : await requestClientSignature(account, encodedCall);
+    const signature = await signMethod(account, encodedCall);
 
     const ecSig = ethUtil.fromRpcSig(signature);
 
@@ -146,7 +144,7 @@ const signCall = async (
         recoveredSs58: recSs58,
     });
 
-    const txWithCustomSig = api.tx.ethCall.call(call, senderSs58, polkadotUtils.hexToU8a(signature));
+    const txWithCustomSig = api.tx.ethCall.call(call, senderSs58, signature);
 
     console.log({
         moduleMethod: JSON.stringify(txWithCustomSig.toHuman()),
@@ -161,6 +159,6 @@ export const sendCustomTransfer = async (to: string, from: string, amount: strin
     const api = await getPlasmInstance(DEFAULT_NETWORK);
 
     const transaction = api.tx.balances.transfer(to, amount);
-    const txHash = await signCall(from, transaction);
+    const txHash = await signCall(from, transaction, requestClientSignature);
     return txHash;
 };
