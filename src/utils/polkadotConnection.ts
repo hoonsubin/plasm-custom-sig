@@ -3,6 +3,7 @@ import * as polkadotUtils from '@polkadot/util';
 import * as plasmDefinitions from '@plasm/types/interfaces/definitions';
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { SubmittableExtrinsic } from '@polkadot/api/types';
+import { createType, TypeRegistry } from '@polkadot/types';
 import { getEthereumRpc, requestClientSignature } from './ethereumConnection';
 import { Keyring } from '@polkadot/keyring';
 import * as ethUtil from 'ethereumjs-util';
@@ -20,6 +21,8 @@ export enum PlasmNetwork {
 export const DEFAULT_NETWORK = PlasmNetwork.Local;
 
 export const NETWORK_PREFIX = 42;
+
+const registry = new TypeRegistry();
 
 /**
  * generates a Plasm public address with the given ethereum public key
@@ -81,6 +84,10 @@ export async function getPlasmInstance(network?: PlasmNetwork) {
         provider: wsProvider,
         types: {
             ...types,
+            EcdsaSignature: {
+                EthereumSignature: '[u8; 65]',
+                signature: 'EthereumSignature',
+            },
             // chain-specific overrides
             Address: 'GenericAddress',
             GenericAddress: 'AccountId',
@@ -110,18 +117,19 @@ export const encodeCall = (extrinsic: SubmittableExtrinsic<any>) => {
 
 export const signCall = async (
     senderSs58: string,
-    call: SubmittableExtrinsic<any>,
+    call: SubmittableExtrinsic<any, any>,
     signMethod?: (signerAddress: string, message: string) => Promise<string>,
 ) => {
-    const ethAccount = (await getEthereumRpc()).account;
+    const { account } = await getEthereumRpc();
     const api = await getPlasmInstance(DEFAULT_NETWORK);
 
     // a serialized SCALE-encoded call object
     const encodedCall = encodeCall(call);
+
     // obtain user signature
     const signature = signMethod
-        ? await signMethod(ethAccount, encodedCall)
-        : await requestClientSignature(ethAccount, encodedCall);
+        ? await signMethod(account, encodedCall)
+        : await requestClientSignature(account, encodedCall);
 
     const ecSig = ethUtil.fromRpcSig(signature);
 
@@ -131,16 +139,26 @@ export const signCall = async (
     const msgHash = ethUtil.hashPersonalMessage(ethUtil.toBuffer(encodedCall));
     const recSs58 = ecdsaPubKeyToPlasmAddress(ethConnections.recoverPublicKey(ecSig, msgHash));
 
+    if (senderSs58 !== recSs58) {
+        throw new Error(
+            `The signer public key does not match the sender address\nExpected ${senderSs58}, received ${recSs58}`,
+        );
+    }
+
+    const rpcSig = api.createType('EcdsaSignature', signature);
+
+    const txWithCustomSig = api.tx.ecdsaSignature.call(call, senderSs58, rpcSig);
+
     console.log({
         message: encodedCall,
         messageHash: ethUtil.bufferToHex(msgHash),
-        signature,
-        senderEthAddress: ethAccount,
+        signature: ecSig,
+        senderEthAddress: account,
         recoveredSs58: recSs58,
-        txCall: JSON.stringify(call.toHuman()),
+        moduleMethod: JSON.stringify(txWithCustomSig.toHuman()),
     });
 
-    const res = await api.tx.ecdsaSignature.call(call, senderSs58, polkadotUtils.hexToU8a(signature)).send();
+    const res = await txWithCustomSig.send();
 
     return res;
 };

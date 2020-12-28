@@ -100,7 +100,7 @@ const CustomSigView: React.FC = () => {
                 {isLoading ? (
                     <h3>Loading...</h3>
                 ) : (
-                    plasmAddr && (
+                    !plasmAddr && (
                         <Button variant="outlined" onClick={handleConnection}>
                             Connect To MetaMask
                         </Button>
