@@ -3,7 +3,6 @@ import * as polkadotUtils from '@polkadot/util';
 import * as plasmDefinitions from '@plasm/types/interfaces/definitions';
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { SubmittableExtrinsic } from '@polkadot/api/types';
-import { createType, TypeRegistry } from '@polkadot/types';
 import { getEthereumRpc, requestClientSignature } from './ethereumConnection';
 import { Keyring } from '@polkadot/keyring';
 import * as ethUtil from 'ethereumjs-util';
@@ -21,8 +20,6 @@ export enum PlasmNetwork {
 export const DEFAULT_NETWORK = PlasmNetwork.Local;
 
 export const NETWORK_PREFIX = 42;
-
-const registry = new TypeRegistry();
 
 /**
  * generates a Plasm public address with the given ethereum public key
@@ -84,10 +81,6 @@ export async function getPlasmInstance(network?: PlasmNetwork) {
         provider: wsProvider,
         types: {
             ...types,
-            EcdsaSignature: {
-                EthereumSignature: '[u8; 65]',
-                signature: 'EthereumSignature',
-            },
             // chain-specific overrides
             Address: 'GenericAddress',
             GenericAddress: 'AccountId',
@@ -108,16 +101,16 @@ export const getTransferCall = async (to: string, amount: string) => {
     return transaction;
 };
 
-export const encodeCall = (extrinsic: SubmittableExtrinsic<any>) => {
+export const encodeCall = (extrinsic: SubmittableExtrinsic<'promise'>) => {
     // SCALE encode the call object and drop the first byte (version)
-    const encoded = polkadotUtils.u8aToHex(polkadotUtils.u8aConcat([0], extrinsic.method.toU8a(true).slice(1)));
+    const encoded = polkadotUtils.u8aToHex(polkadotUtils.u8aConcat([0], extrinsic.toU8a(true).slice(1)));
 
     return encoded;
 };
 
-export const signCall = async (
+const signCall = async (
     senderSs58: string,
-    call: SubmittableExtrinsic<any, any>,
+    call: SubmittableExtrinsic<'promise'>,
     signMethod?: (signerAddress: string, message: string) => Promise<string>,
 ) => {
     const { account } = await getEthereumRpc();
@@ -145,16 +138,17 @@ export const signCall = async (
         );
     }
 
-    const rpcSig = api.createType('EcdsaSignature', signature);
-
-    const txWithCustomSig = api.tx.ecdsaSignature.call(call, senderSs58, rpcSig);
-
     console.log({
         message: encodedCall,
         messageHash: ethUtil.bufferToHex(msgHash),
-        signature: ecSig,
+        signature,
         senderEthAddress: account,
         recoveredSs58: recSs58,
+    });
+
+    const txWithCustomSig = api.tx.ethCall.call(call, senderSs58, polkadotUtils.hexToU8a(signature));
+
+    console.log({
         moduleMethod: JSON.stringify(txWithCustomSig.toHuman()),
     });
 
