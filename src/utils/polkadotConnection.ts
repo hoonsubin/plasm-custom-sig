@@ -3,6 +3,7 @@ import * as polkadotUtils from '@polkadot/util';
 import * as plasmDefinitions from '@plasm/types/interfaces/definitions';
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { SubmittableExtrinsic } from '@polkadot/api/types';
+import { Call } from '@polkadot/types/interfaces';
 import { getEthereumRpc, requestClientSignature } from './ethereumConnection';
 import { Keyring } from '@polkadot/keyring';
 import * as ethUtil from 'ethereumjs-util';
@@ -94,16 +95,9 @@ export async function getPlasmInstance(network?: PlasmNetwork) {
     return polkaApi;
 }
 
-export const getTransferCall = async (to: string, amount: string) => {
-    const api = await getPlasmInstance(DEFAULT_NETWORK);
-
-    const transaction = api.tx.balances.transfer(to, amount);
-    return transaction;
-};
-
-export const encodeCall = (extrinsic: SubmittableExtrinsic<'promise'>) => {
+export const encodeCall = (call: Call) => {
     // SCALE encode the call object and drop the first byte (version)
-    const encoded = polkadotUtils.u8aToHex(polkadotUtils.u8aConcat([0], extrinsic.toU8a(true).slice(1)));
+    const encoded = polkadotUtils.u8aToHex(polkadotUtils.u8aConcat([0], call.toU8a(true).slice(1)));
 
     return encoded;
 };
@@ -117,7 +111,7 @@ const signCall = async (
     const api = await getPlasmInstance(DEFAULT_NETWORK);
 
     // a serialized SCALE-encoded call object
-    const encodedCall = encodeCall(call);
+    const encodedCall = call.toJSON();
 
     // obtain user signature
     const signature = await signMethod(account, encodedCall);
@@ -136,15 +130,20 @@ const signCall = async (
         );
     }
 
+    const txCall = api.createType('Call', call.toHex());
+    const sigArg = api.createType('Bytes', signature);
+
     console.log({
         message: encodedCall,
         messageHash: ethUtil.bufferToHex(msgHash),
         signature,
+        sigArg,
+        txCall,
         senderEthAddress: account,
         recoveredSs58: recSs58,
     });
 
-    const txWithCustomSig = api.tx.ethCall.call(call, senderSs58, signature);
+    const txWithCustomSig = api.tx.ethCall.call(txCall, senderSs58, sigArg);
 
     console.log({
         moduleMethod: JSON.stringify(txWithCustomSig.toHuman()),
@@ -157,7 +156,6 @@ const signCall = async (
 
 export const sendCustomTransfer = async (to: string, from: string, amount: string) => {
     const api = await getPlasmInstance(DEFAULT_NETWORK);
-
     const transaction = api.tx.balances.transfer(to, amount);
     const txHash = await signCall(from, transaction, requestClientSignature);
     return txHash;
